@@ -1,0 +1,101 @@
+baseURL: "https://na06078.github.io/Rey_Blog/"
+languageCode: "ko-kr"
+title: "Rey Blog"
+theme: "PaperMod"
+
+defaultContentLanguage: "ko"
+hasCJKLanguage: true
+
+enableRobotsTXT: true
+enableGitInfo: false
+buildDrafts: false
+buildFuture: false
+buildExpired: false
+
+pagination:
+  pagerSize: 10
+
+minify:
+  disableXML: true
+  minifyOutput: true
+
+taxonomies:
+  category: categories
+  tag: tags
+
+params:
+  env: production
+  title: "Rey Blog"
+  description: "아이펠 아카데미에서 공부하며 배운 내용을 기록하는 학습 블로그입니다."
+  keywords: [아이펠, AI, 머신러닝, 딥러닝, Python, 학습기록]
+  author: "Rey"
+  defaultTheme: auto
+  disableThemeToggle: false
+  ShowReadingTime: true
+  ShowShareButtons: false
+  ShowPostNavLinks: true
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: true
+  ShowWordCount: true
+  ShowToc: true
+  TocOpen: false
+  comments: false
+  hidemeta: false
+  showtoc: true
+
+  homeInfoParams:
+    Title: "안녕하세요, Rey입니다 👋"
+    Content: >
+      아이펠 아카데미에서 공부하며 배운 내용을 정리하고,
+      프로젝트와 오류 해결 과정을 기록하는 학습 블로그입니다.
+
+  socialIcons:
+    - name: github
+      url: "https://github.com/na06078"
+
+  label:
+    text: "Rey Blog"
+
+  assets:
+    disableHLJS: false
+    favicon: "/favicon.ico"
+
+menu:
+  main:
+    - identifier: posts
+      name: 글
+      url: /posts/
+      weight: 10
+    - identifier: categories
+      name: 카테고리
+      url: /categories/
+      weight: 20
+    - identifier: tags
+      name: 태그
+      url: /tags/
+      weight: 30
+    - identifier: about
+      name: 소개
+      url: /about/
+      weight: 40
+    - identifier: search
+      name: 검색
+      url: /search/
+      weight: 50
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
+
+markup:
+  highlight:
+    noClasses: false
+    codeFences: true
+    guessSyntax: true
+    lineNos: false
+    style: monokai
+  goldmark:
+    renderer:
+      unsafe: true
