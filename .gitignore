@@ -14,3 +14,8 @@ Thumbs.db
 # 에디터
 .idea/
 .vscode/
+
+# 비밀값 환경 파일
+.env
+.env.*
+!.env.example

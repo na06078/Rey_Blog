@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>공간 Gaussian Splat 뷰어</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --panel: rgba(16, 24, 38, 0.88);
+        --line: rgba(148, 163, 184, 0.28);
+        --accent: #7dd3fc;
+        --text: #e5eef8;
+        --muted: #a7b7c9;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #07111f; color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+      #app { position: relative; width: 100%; height: 100%; }
+      #viewport { display: block; width: 100%; height: 100%; }
+      .panel { position: absolute; z-index: 2; width: min(430px, calc(100vw - 28px)); padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); backdrop-filter: blur(12px); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24); }
+      #controls { top: 14px; left: 14px; }
+      #drop-zone { border: 1px dashed rgba(125, 211, 252, 0.7); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+      #drop-zone.dragover { background: rgba(14, 116, 144, 0.28); border-color: #fff; }
+      h1 { margin: 0 0 8px; font-size: 1.1rem; }
+      p { margin: 7px 0; line-height: 1.5; }
+      .muted { color: var(--muted); font-size: 0.9rem; }
+      #file-input { display: none; }
+      #status { margin-top: 12px; color: var(--accent); font-size: 0.9rem; white-space: pre-wrap; }
+      #details { margin-top: 10px; color: var(--muted); font: 0.82rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+      .mapping { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 0.82rem; }
+      .mapping span:nth-child(odd) { color: var(--accent); }
+      @media (max-width: 640px) { .panel { padding: 14px; } .mapping { grid-template-columns: 1fr; gap: 3px; } }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="viewport" aria-label="Gaussian Splat 3D 뷰어"></canvas>
+      <section id="controls" class="panel" aria-live="polite">
+        <h1>공간 Gaussian Splat 뷰어</h1>
+        <p class="muted">파일을 아래 영역으로 끌어 놓으면 현재 장면을 교체합니다.</p>
+        <div id="drop-zone" tabindex="0" role="button" aria-label="Splat 파일 열기">
+          <strong>파일 끌어 놓기</strong><br />
+          <span class="muted">또는 클릭해서 선택</span>
+          <input id="file-input" type="file" accept=".ply,.compressed.ply,.sog,.spz" />
+        </div>
+        <div class="mapping" aria-label="파일 확장자 대응표">
+          <span>.ply</span><span>PLY</span>
+          <span>.compressed.ply</span><span>Compressed PLY</span>
+          <span>.sog</span><span>SOG</span>
+          <span>.spz</span><span>SPZ</span>
+        </div>
+        <div id="status">파일을 선택하면 장면이 표시됩니다.</div>
+        <div id="details"></div>
+      </section>
+    </main>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+
+      const canvas = document.querySelector("#viewport");
+      const dropZone = document.querySelector("#drop-zone");
+      const fileInput = document.querySelector("#file-input");
+      const status = document.querySelector("#status");
+      const details = document.querySelector("#details");
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x07111f);
+      const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100000);
+      camera.position.set(0, 0, 3);
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      const spark = new SparkRenderer({ renderer });
+      scene.add(spark);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(0, 0, 0);
+
+      let currentMesh = null;
+
+      function resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      function formatName(fileName) {
+        const lower = fileName.toLowerCase();
+        if (lower.endsWith(".compressed.ply")) return "Compressed PLY";
+        if (lower.endsWith(".ply")) return "PLY";
+        if (lower.endsWith(".sog")) return "SOG";
+        if (lower.endsWith(".spz")) return "SPZ";
+        return "알 수 없는 형식";
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`;
+        if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
+        return `${(bytes / 1024 ** 3).toFixed(2)} GiB`;
+      }
+
+      function fitCamera(mesh) {
+        mesh.updateMatrixWorld(true);
+        const box = mesh.getBoundingBox();
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        center.applyMatrix4(mesh.matrixWorld);
+        const radius = Math.max(size.length() * 0.5, 0.05);
+        controls.target.copy(center);
+        camera.position.copy(center).add(new THREE.Vector3(0, radius * 0.35, radius * 2.3));
+        camera.near = Math.max(radius / 1000, 0.001);
+        camera.far = Math.max(radius * 100, 100);
+        camera.updateProjectionMatrix();
+        controls.update();
+      }
+
+      async function loadBytes(fileName, bytes, size) {
+        const typeName = formatName(fileName);
+        if (typeName === "알 수 없는 형식") {
+          throw new Error("지원 형식은 .ply, .compressed.ply, .sog, .spz입니다.");
+        }
+        status.textContent = `${typeName} 읽는 중...`;
+        details.textContent = `${fileName}\n${formatBytes(size)}`;
+        const nextMesh = new SplatMesh({
+          fileBytes: bytes,
+          fileName,
+          onProgress: (event) => {
+            if (event.lengthComputable) {
+              status.textContent = `${typeName} 해석 중 ${((event.loaded / event.total) * 100).toFixed(0)}%`;
+            }
+          },
+        });
+        // MapAnything uses OpenCV (+X right, +Y down, +Z forward).
+        // Spark/Three.js uses an OpenGL-style up axis, so rotate 180° about X.
+        nextMesh.quaternion.set(1, 0, 0, 0);
+        scene.add(nextMesh);
+        await nextMesh.initialized;
+        fitCamera(nextMesh);
+        if (currentMesh) {
+          scene.remove(currentMesh);
+          currentMesh.dispose();
+        }
+        currentMesh = nextMesh;
+        status.textContent = `${typeName} 표시 완료`;
+        details.textContent = `${fileName}\n${formatBytes(size)}\n알갱이 수: ${nextMesh.numSplats.toLocaleString()}`;
+      }
+
+      async function loadFile(file) {
+        await loadBytes(file.name, new Uint8Array(await file.arrayBuffer()), file.size);
+      }
+
+      async function loadUrl(url, fileName) {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`${fileName} 요청 실패: HTTP ${response.status}`);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        await loadBytes(fileName, bytes, bytes.byteLength);
+      }
+
+      async function handleFile(file) {
+        try {
+          await loadFile(file);
+        } catch (error) {
+          console.error(error);
+          status.textContent = `불러오기 실패: ${error.message || error}`;
+        }
+      }
+
+      dropZone.addEventListener("click", () => fileInput.click());
+      dropZone.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") fileInput.click();
+      });
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+      });
+      ["dragenter", "dragover"].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.add("dragover");
+      }));
+      ["dragleave", "drop"].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove("dragover");
+      }));
+      dropZone.addEventListener("drop", (event) => {
+        const file = event.dataTransfer.files?.[0];
+        if (file) handleFile(file);
+      });
+
+      loadUrl("./scene.sog", "scene.sog").catch((error) => {
+        status.textContent = "기본 scene.sog를 불러오지 못했습니다. 파일을 끌어 놓아 주세요.";
+        console.info(error);
+      });
+
+      renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
+      });
+    </script>
+  </body>
+</html>
