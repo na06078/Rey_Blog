@@ -16,19 +16,20 @@ https://na06078.github.io/Rey_Blog/my-open-space/
 - MapAnything 입력: longest-side `518px` (`294×518`)
 - 카메라가 퍼진 정도: 미측정
 - MapAnything 원시 점: `3,486,931개`
-- voxel downsample 후 나온 초기 Gaussian: `41,267개`
+- voxel downsample: 적용하지 않음
+- 나온 초기 Gaussian: `3,486,931개`
 - 초기 Gaussian PLY는 3DGS 학습 결과가 아니라 위치·색상에 기본 Gaussian 속성을 부여한 표현입니다.
 
 ## 형식별로 잰 값
 
 | 형식 | 파일 크기 | 알갱이 개수 | 알갱이당 바이트 |
 |---|---:|---:|---:|
-| `.ply` | 2,311,313 bytes | 41,267 | 56.01 |
-| `.compressed.ply` | 672,593 bytes | 41,267 | 16.30 |
-| `.sog` | 253,624 bytes | 41,267 | 6.15 |
-| `.spz` | 388,023 bytes | 41,267 | 9.40 |
+| `.ply` | 195,268,499 bytes | 3,486,931 | 56.00 |
+| `.compressed.ply` | 56,772,269 bytes | 3,486,931 | 16.28 |
+| `.sog` | 16,490,623 bytes | 3,486,931 | 4.73 |
+| `.spz` | 23,469,160 bytes | 3,486,931 | 6.73 |
 
-`SplatTransform v3.4.2`의 `numGaussians`와 `lodCounts`를 확인했으며, 네 형식의 알갱이 수는 모두 `41,267개`로 동일합니다.
+`SplatTransform v3.4.2`의 `numGaussians`와 `lodCounts`를 확인했으며, 네 형식의 알갱이 수는 모두 `3,486,931개`로 동일합니다.
 
 ## 폰에서 첫 화면까지
 
